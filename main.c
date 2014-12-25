@@ -20,28 +20,86 @@ int main(void) {
     __bic_SR_register(SCG0);                  // Enable the FLL control loop
 
 /////////////////////////////////////////////////////////////////////////////
-/////// 			Setup Timer A1 for PWM							/////////
+/////// 			Setup Timer A0 for PWM							/////////
 /////////////////////////////////////////////////////////////////////////////
 
     P2DIR |= BIT0;                       // Set P2.0 as output
-    P2SEL |= BIT0;                       // Set P2.0 to output 1 of timer A1
-    TA1CCR0 = 100-1;                     // PWM Period
-    TA1CCTL1 = OUTMOD_7;                 // CCR1 reset/set
-    TA1CCR1 = 49;                        // CCR1 PWM duty cycle
-    TA1CCR2 = 49;                        // CCR2 PWM duty cycle
-    TA1CCR3 = 49;                        // CCR3 PWM duty cycle
-    TA1CTL = TASSEL_2 + TACLR;    // SMCLK, clear TAR
+    P2SEL |= BIT0;                       // Set P2.0 to output 1 of timer A0
+    TA0CCR0 = 100-1;                     // PWM Period
+    TA0CCTL1 = OUTMOD_7;                 // CCR1 reset/set
+    TA0CCR1 = 49;                        // CCR1 PWM duty cycle
+    TA0CCR2 = 49;                        // CCR2 PWM duty cycle
+    TA0CCR3 = 49;                        // CCR3 PWM duty cycle
+    TA0CTL = TASSEL_2 + TACLR + MC_1;    // SMCLK, clear TAR, Up Mode
 
  /////////////////////////////////////////////////////////////////////////////
- /////// 			Setup Timer A0 for LED Selection				 /////////
+ /////// 			Setup Timer B0 for LED Selection				 /////////
  /////////////////////////////////////////////////////////////////////////////
 
-    TA0CCR0 = 1000 - 1;					// PWM Period
-    TA1CCTL2 = OUTMOD_7;				// CCR2 reset/set
-    TA0CCR1 = 100 - 1;					// Trigger for ADC
-    TA0CCR2 = 300 - 1;					// PWM Duty Cycle
+    TB0CCR0 = 1000 - 1;					// PWM Period
+    TB0CCTL2 = OUTMOD_7;				// CCR2 reset/set
+    TB0CCR1 = 100 - 1;					// Trigger for ADC
+    TB0CCR2 = 300 - 1;					// PWM Duty Cycle
+    TB0CTL = TBIE + MC_1;				// Enable interrupt on Timer B, Up Mode
 
     __bis_SR_register(LPM0_bits);             // Enter LPM0
     __no_operation();                         // For debugger
     return (0);
 }
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_B0_VECTOR
+__interrupt void TIMER0_B0_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_B0_VECTOR))) TIMER0_B0_ISR (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	TA0CTL &= MC_1;						 // Turn on TA0
+}
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_B1_VECTOR
+__interrupt void TIMER0_B1_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	switch(__even_in_range(TB0IV, 14))
+	{
+		case  0: break;                          // No interrupt
+	    case  2: break;                          // CCR1 not used
+	    case  4:
+	    	TA0CTL &= MC_0;						 // Turn off TA0
+	    	TA0CCTL1 = OUTMOD_0;				 // Turn off TA0CCR1
+	    	TB0CCTL2 = OUTMOD_0;				 // Turn off TB0CCR2
+	    	TA0CCTL2 = OUTMOD_7;				 // Turn on TA0CCR2
+	    	TB0CCTL3 = OUTMOD_7;				 // Turn on TB0CCR3
+	    	break;
+	    case  6:
+	    	TA0CTL &= MC_0;						 // Turn off TA0
+	    	TA0CCTL2 = OUTMOD_0;				 // Turn off TA0CCR2
+	    	TB0CCTL3 = OUTMOD_0;				 // Turn off TB0CCR3
+	    	TA0CCTL3 = OUTMOD_7;				 // Turn on TA0CCR3
+	    	TB0CCTL4 = OUTMOD_7;				 // Turn on TB0CCR4
+	    	break;
+	    case  8:
+	    	TA0CTL &= MC_0;						 // Turn off TA0
+	    	TA0CCTL3 = OUTMOD_0;				 // Turn off TA0CCR3
+	    	TB0CCTL4 = OUTMOD_0;				 // Turn off TB0CCR4
+	    	TB0CCTL5 = OUTMOD_7;				 // Turn on TB0CCR5
+	    	break;
+	    case 10:
+	    	TB0CCTL5 = OUTMOD_0;				 // Turn off TB0CCR5
+	    	TB0CCTL2 = OUTMOD_7;				 // Turn on TB0CCR2
+	    	TA0CCTL1 = OUTMOD_7;				 // Turn on TA0CCR1
+	    	break;
+	    case 12: break;                          // reserved
+	    case 14: break;
+	    default: break;
+	}
+}
+
