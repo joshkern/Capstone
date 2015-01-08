@@ -23,26 +23,26 @@ int main(void) {
 /////// 			Setup Timer A0 for PWM							/////////
 /////////////////////////////////////////////////////////////////////////////
 
-    P1DIR |= BIT2+BIT3+BIT4;             // Set P1.2, 1.3, 1.4 as output
-    P1SEL |= BIT2+BIT3+BIT4;             // Set P1.2, 1.3, 1.4 to output 1,2,3 of timer A0
-    TA0CCR0 = 20-1;                     // PWM Period
+    P2DIR |= BIT0;                       // Set P2.0 as output
+    P2SEL |= BIT0;                       // Set P2.0 to output 1 of timer A0
+    TA0CCR0 = 100-1;                     // PWM Period
     TA0CCTL1 = OUTMOD_7;                 // CCR1 reset/set
-    TA0CCR1 = 9;                        // CCR1 PWM duty cycle
-    TA0CCR2 = 9;                        // CCR2 PWM duty cycle
-    TA0CCR3 = 9;                        // CCR3 PWM duty cycle
+    TA0CCR1 = 49;                        // CCR1 PWM duty cycle
+    TA0CCR2 = 49;                        // CCR2 PWM duty cycle
+    TA0CCR3 = 49;                        // CCR3 PWM duty cycle
     TA0CTL = TASSEL_2 + TACLR + MC_1;    // SMCLK, clear TAR, Up Mode
 
  /////////////////////////////////////////////////////////////////////////////
  /////// 			Setup Timer B0 for LED Selection				 /////////
  /////////////////////////////////////////////////////////////////////////////
 
-    TB0CCR0 = 500 - 1;					// PWM Period
+    TB0CCR0 = 1000 - 1;					// PWM Period
     TB0CCTL2 = OUTMOD_7;				// CCR2 reset/set
     TB0CCR1 = 100 - 1;					// Trigger for ADC
-    TB0CCR2 = 200 - 1;					// PWM Duty Cycle
+    TB0CCR2 = 300 - 1;					// PWM Duty Cycle
     TB0CTL = TBIE + MC_1;				// Enable interrupt on Timer B, Up Mode
 
-    __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0, enable global interrupts
+    __bis_SR_register(LPM0_bits);             // Enter LPM0
     __no_operation();                         // For debugger
     return (0);
 }
