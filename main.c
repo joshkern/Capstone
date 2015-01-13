@@ -1,5 +1,7 @@
 #include <msp430.h>
 
+volatile unsigned int skin[40];
+volatile unsigned int bone[40];
 int main(void) {
 
 	WDTCTL = WDTPW+WDTHOLD;                   // Stop WDT
@@ -27,7 +29,7 @@ int main(void) {
     P1SEL |= BIT2+BIT3+BIT4;            // Set P1.2, 1.3, 1.4 to output 1,2,3 of timer A0
     TA0CCR0 = 20-1;                     // PWM Period
     TA0CCTL1 = OUTMOD_7;                // CCR1 reset/set
-    TA0CCR1 = 9;                        // CCR1 PWM duty cycle
+    TA0CCR1 = 12;                       // CCR1 PWM duty cycle
     TA0CCTL2 = OUTMOD_7;                // CCR2 reset/set
     TA0CCR2 = 9;                        // CCR2 PWM duty cycle
     TA0CCTL3 = OUTMOD_7;                // CCR3 reset/set
@@ -38,25 +40,25 @@ int main(void) {
  /////// 			Setup Timer B0 for LED Selection				 /////////
  /////////////////////////////////////////////////////////////////////////////
 
-    TB0CCR0 = 500 - 1;					// PWM Period
-    TB0CCTL0 |= CCIE;				    // CCR2 reset/set
-    TB0CCTL2 |= CCIE;				    // CCR2 reset/set
-    TB0CCR1 = 100 - 1;					// Trigger for ADC
-    TB0CCR2 = 200 - 1;					// PWM Duty Cycle
-    TB0CCR3 = 200 - 1;					// PWM Duty Cycle
-    TB0CCR4 = 200 - 1;					// PWM Duty Cycle
-    TB0CCR5 = 200 - 1;					// PWM Duty Cycle
+    TB0CCR0 = 1000 - 1;					// PWM Period
+    TB0CCTL0 |= CCIE;				    // CCR0 Interrupt Enable
+    TB0CCTL1 |= CCIE + OUTMOD_4;	    // CCR1 Interrupt Enable
+    TB0CCTL2 |= CCIE;				    // CCR2 Interrupt Enable
+    TB0CCR1 = 50 - 1;					// Trigger for ADC
+    TB0CCR2 = 900 - 1;					// PWM Duty Cycle
+    TB0CCR3 = 900 - 1;					// PWM Duty Cycle
+    TB0CCR4 = 900 - 1;					// PWM Duty Cycle
+    TB0CCR5 = 900 - 1;					// PWM Duty Cycle
     TB0CTL =  TASSEL_2 + TBIE + TBCLR +  MC_1;				// Enable interrupt on Timer B, Up Mode
 
 /////////////////////////////////////////////////////////////////////////////
 /////// 						Setup ADC12				 			/////////
 /////////////////////////////////////////////////////////////////////////////
 
-    volatile unsigned int skin[20];
-    volatile unsigned int bone[20];
+
     P6SEL = 0x03;                             // Enable A/D channel inputs
-    ADC12CTL0 = ADC12SHT0_5 + ADC12MSC + ADC12ON; //Sample time is 96 clocks, rising edge trigger, turn on ADC
-    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_1 + ADC12CONSEQ_3;       // Use sampling timer, repeated sequence
+    ADC12CTL0 = ADC12SHT0_4 + ADC12MSC + ADC12ON; //Sample time is 64 clocks, rising edge trigger, turn on ADC
+    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_3;    // Use sampling timer, repeated sequence
     ADC12MCTL0 = ADC12INCH_0;                 // ref+=AVcc, channel = A0
     ADC12MCTL1 = ADC12INCH_1 + ADC12EOS;      // ref+=AVcc, channel = A1, end of sequence
     ADC12IE = 0x02;                           // Enable ADC12IFG.1
@@ -92,7 +94,8 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	{
 		case  0: break;                          // No interrupt
 	    case  2:                           		 // CCR1 not used
-	    	ADC12CTL0 |= ADC12ON:				 // Turn the ADC back on
+	    	ADC12CTL0 |= ADC12ON;				 // Turn the ADC back on
+	    	break;
 	    case  4:
 	    	TA0CCR0 = 0;                     // Turn off TA0
 	    	TA0CCTL1 = OUTMOD_0;		     // Turn off TA0CCR1
@@ -146,6 +149,7 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	    case 14: break;
 	    default: break;
 	}
+}
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=ADC12_VECTOR
@@ -169,9 +173,9 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12ISR (void)
 	    bone[index] = ADC12MEM1;           // Move A1 results, IFG is cleared
 	    index++;                           // Increment results index, modulo; Set Breakpoint1 here
 
-	    if(index%5 == 0)
+	    if(index%10 == 0)
 	    	ADC12CTL0 &= ~ADC12ON;
-	    if (index == 19)
+	    if (index == 39)
 	    {
 	      (index = 0);
 	    }
