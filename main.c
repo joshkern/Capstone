@@ -1,7 +1,7 @@
 #include <msp430.h>
 
-volatile unsigned int skin[40];
-volatile unsigned int bone[40];
+volatile unsigned short skin[40];
+volatile unsigned short bone[40];
 int main(void) {
 
 	WDTCTL = WDTPW+WDTHOLD;                   // Stop WDT
@@ -42,7 +42,7 @@ int main(void) {
 
     TB0CCR0 = 1000 - 1;					// PWM Period
     TB0CCTL0 |= CCIE;				    // CCR0 Interrupt Enable
-    TB0CCTL1 |= CCIE + OUTMOD_4;	    // CCR1 Interrupt Enable
+    TB0CCTL1 |= CCIE + OUTMOD_3;	    // CCR1 Interrupt Enable
     TB0CCTL2 |= CCIE;				    // CCR2 Interrupt Enable
     TB0CCR1 = 50 - 1;					// Trigger for ADC
     TB0CCR2 = 900 - 1;					// PWM Duty Cycle
@@ -58,7 +58,7 @@ int main(void) {
 
     P6SEL = 0x03;                             // Enable A/D channel inputs
     ADC12CTL0 = ADC12SHT0_4 + ADC12MSC + ADC12ON; //Sample time is 64 clocks, rising edge trigger, turn on ADC
-    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_3;    // Use sampling timer, repeated sequence
+    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_3;    // Use sampling timer, Timer B CCR1 as trigger, SMCLK, repeated sequence
     ADC12MCTL0 = ADC12INCH_0;                 // ref+=AVcc, channel = A0
     ADC12MCTL1 = ADC12INCH_1 + ADC12EOS;      // ref+=AVcc, channel = A1, end of sequence
     ADC12IE = 0x02;                           // Enable ADC12IFG.1
@@ -175,7 +175,7 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12ISR (void)
 
 	    if(index%10 == 0)
 	    	ADC12CTL0 &= ~ADC12ON;
-	    if (index == 39)
+	    if (index == 40)
 	    {
 	      (index = 0);
 	    }
