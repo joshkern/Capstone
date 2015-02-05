@@ -1,7 +1,7 @@
 #include <msp430.h>
 
-volatile unsigned short skin[40];
-volatile unsigned short bone[40];
+volatile unsigned short skin[4];
+volatile unsigned short bone[4];
 int main(void) {
 
 	WDTCTL = WDTPW+WDTHOLD;                   // Stop WDT
@@ -58,7 +58,7 @@ int main(void) {
 
     P6SEL = 0x03;                             // Enable A/D channel inputs
     ADC12CTL0 = ADC12SHT0_4 + ADC12MSC + ADC12ON; //Sample time is 64 clocks, rising edge trigger, turn on ADC
-    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_3;    // Use sampling timer, Timer B CCR1 as trigger, SMCLK, repeated sequence
+    ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_1;    // Use sampling timer, Timer B CCR1 as trigger, SMCLK, sequence
     ADC12MCTL0 = ADC12INCH_0;                 // ref+=AVcc, channel = A0
     ADC12MCTL1 = ADC12INCH_1 + ADC12EOS;      // ref+=AVcc, channel = A1, end of sequence
     ADC12IE = 0x02;                           // Enable ADC12IFG.1
@@ -93,9 +93,7 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	switch(__even_in_range(TB0IV, 14))
 	{
 		case  0: break;                          // No interrupt
-	    case  2:                           		 // CCR1 not used
-	    	ADC12CTL0 |= ADC12ON;				 // Turn the ADC back on
-	    	break;
+	    case  2: break;                          // CCR1 not used
 	    case  4:
 	    	TA0CCR0 = 0;                     // Turn off TA0
 	    	TA0CCTL1 = OUTMOD_0;		     // Turn off TA0CCR1
@@ -171,14 +169,10 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12ISR (void)
   case  8: 		                            // Vector  8:  ADC12IFG1
 	    skin[index] = ADC12MEM0;           // Move A0 results, IFG is cleared
 	    bone[index] = ADC12MEM1;           // Move A1 results, IFG is cleared
-	    index++;                           // Increment results index, modulo; Set Breakpoint1 here
-
-	    if(index%10 == 0)
-	    	ADC12CTL0 &= ~ADC12ON;
-	    if (index == 40)
-	    {
-	      (index = 0);
-	    }
+	    index++;
+		if(index == 4)
+			index = 0;
+	    break;
   case 10: break;                           // Vector 10:  ADC12IFG2
   case 12: break;                           // Vector 12:  ADC12IFG3
   case 14: break;                           // Vector 14:  ADC12IFG4
