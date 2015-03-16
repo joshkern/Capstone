@@ -2,6 +2,11 @@
 
 volatile unsigned short skin[4];
 volatile unsigned short bone[4];
+
+volatile unsigned char skinv2[8];
+volatile unsigned char bonev2[8];
+
+int send;
 int main(void) {
 
 	WDTCTL = WDTPW+WDTHOLD;                   // Stop WDT
@@ -14,10 +19,10 @@ int main(void) {
     __bis_SR_register(SCG0);                  // Disable the FLL control loop
 
     UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
-    UCSCTL1 = DCORSEL_4;                      // Select DCO range 1.3 - 3.2MHz operation
-    UCSCTL2 = 59;                   		  // Set DCO Multiplier for 2MHz
+    UCSCTL1 = DCORSEL_6;                      // Select DCO range 4.6 - 10.7MHz operation
+    UCSCTL2 = 304;                   		  // Set DCO Multiplier for 10MHz
                                               // (N + 1) * FLLRef = Fdco
-                                              // (59 + 1) * 32768 = 2MHz
+                                              // (304 + 1) * 32768 = 10MHz
     UCSCTL4 = UCSCTL4 + SELS__DCOCLK;		  // Set source to SMCLK as DCOCLK
     __bic_SR_register(SCG0);                  // Enable the FLL control loop
 
@@ -27,28 +32,28 @@ int main(void) {
 
     P1DIR |= BIT2+BIT3+BIT4;            // Set P1.2, 1.3, 1.4 as output
     P1SEL |= BIT2+BIT3+BIT4;            // Set P1.2, 1.3, 1.4 to output 1,2,3 of timer A0
-    TA0CCR0 = 20-1;                     // PWM Period
+    TA0CCR0 = 33-1;                     // PWM Period
     TA0CCTL1 = OUTMOD_7;                // CCR1 reset/set
-    TA0CCR1 = 12;                       // CCR1 PWM duty cycle
+    TA0CCR1 = 17;                       // CCR1 PWM duty cycle
     TA0CCTL2 = OUTMOD_7;                // CCR2 reset/set
-    TA0CCR2 = 9;                        // CCR2 PWM duty cycle
+    TA0CCR2 = 17;                        // CCR2 PWM duty cycle
     TA0CCTL3 = OUTMOD_7;                // CCR3 reset/set
-    TA0CCR3 = 9;                        // CCR3 PWM duty cycle
+    TA0CCR3 = 17;                        // CCR3 PWM duty cycle
     TA0CTL = TASSEL_2 + TACLR + MC_1;   // SMCLK, clear TAR, Up Mode
 
  /////////////////////////////////////////////////////////////////////////////
  /////// 			Setup Timer B0 for LED Selection				 /////////
  /////////////////////////////////////////////////////////////////////////////
 
-    TB0CCR0 = 1000 - 1;					// PWM Period
+    TB0CCR0 = 5000 - 1;					// PWM Period
     TB0CCTL0 |= CCIE;				    // CCR0 Interrupt Enable
     TB0CCTL1 |= CCIE + OUTMOD_3;	    // CCR1 Interrupt Enable
     TB0CCTL2 |= CCIE;				    // CCR2 Interrupt Enable
-    TB0CCR1 = 50 - 1;					// Trigger for ADC
-    TB0CCR2 = 900 - 1;					// PWM Duty Cycle
-    TB0CCR3 = 900 - 1;					// PWM Duty Cycle
-    TB0CCR4 = 900 - 1;					// PWM Duty Cycle
-    TB0CCR5 = 900 - 1;					// PWM Duty Cycle
+    TB0CCR1 = 450 - 1;					// Trigger for ADC
+    TB0CCR2 = 4500 - 1;					// PWM Duty Cycle
+    TB0CCR3 = 4500 - 1;					// PWM Duty Cycle
+    TB0CCR4 = 4500 - 1;					// PWM Duty Cycle
+    TB0CCR5 = 4500 - 1;					// PWM Duty Cycle
     TB0CTL =  TASSEL_2 + TBIE + TBCLR +  MC_1;				// Enable interrupt on Timer B, Up Mode
 
 /////////////////////////////////////////////////////////////////////////////
@@ -64,8 +69,48 @@ int main(void) {
     ADC12IE = 0x02;                           // Enable ADC12IFG.1
     ADC12CTL0 |= ADC12ENC;                    // Enable conversions
 
-    __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0, enable global interrupts
-    __no_operation();                         // For debugger
+
+/////////////////////////////////////////////////////////////////////////////
+/////// 						Setup UART				 			/////////
+/////////////////////////////////////////////////////////////////////////////
+
+    P4SEL = BIT4+BIT5;                        // P3.4,5 = USCI_A0 TXD/RXD
+
+    UCA1CTL1 |= UCSWRST;                      // **Put state machine in reset**
+    UCA1CTL1 |= UCSSEL_1;                     // CLK = ACLK
+    UCA1BR0 = 0x03;                           // 32kHz/9600=3.41 (see User's Guide)
+    UCA1BR1 = 0x00;                           //
+    UCA1MCTL = UCBRS_3+UCBRF_0;               // Modulation UCBRSx=3, UCBRFx=0
+    UCA1CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
+    //UCA1IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
+
+    send=0;
+
+    __bis_SR_register(GIE);       // Enter LPM0, enable global interrupts
+        __no_operation();                         // For debugger
+
+    while(1) {
+
+		if(send) {
+			int i;
+			for (i = 0; i < 8; i++)
+			{
+				if (i%2)
+				{
+					skinv2[i] = (0x00FF & skin[i/2]);
+					//bonev2[i] = (0x00FF & bone[i/2]);
+				}
+				else
+				{
+					skinv2[i] = ((skin[i/2] >> 8) & 0x00FF);
+					//bonev2[i] = ((bone[i/2] >> 8) & 0x00FF);
+				}
+				while (!(UCA1IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
+					UCA1TXBUF = skinv2[i];
+			}
+			send = 0;
+		}
+    }
     //return (0);
 }
 
@@ -78,7 +123,7 @@ void __attribute__ ((interrupt(TIMER0_B0_VECTOR))) TIMER0_B0_ISR (void)
 #error Compiler not supported!
 #endif
 {
-	TA0CCR0 = 20 ;						// Turn on TA0
+	TA0CCR0 = 33 ;						// Turn on TA0
 }
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
@@ -167,11 +212,15 @@ void __attribute__ ((interrupt(ADC12_VECTOR))) ADC12ISR (void)
   case  4: break;                           // Vector  4:  ADC timing overflow
   case  6: break;                           // Vector  6:  ADC12IFG0
   case  8: 		                            // Vector  8:  ADC12IFG1
-	    skin[index] = ADC12MEM0;           // Move A0 results, IFG is cleared
+	  	skin[index] = ADC12MEM0;           // Move A0 results, IFG is cleared
 	    bone[index] = ADC12MEM1;           // Move A1 results, IFG is cleared
 	    index++;
-		if(index == 4)
+
+		if(index == 4){
 			index = 0;
+			send = 1;}
+		ADC12CTL0 |= ADC12ENC;
+		//__bic_SR_register_on_exit(LPM0_bits);   // Exit active CPU
 	    break;
   case 10: break;                           // Vector 10:  ADC12IFG2
   case 12: break;                           // Vector 12:  ADC12IFG3
