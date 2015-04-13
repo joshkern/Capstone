@@ -38,7 +38,7 @@ int main(void) {
     TA0CCTL2 = OUTMOD_7;                // CCR2 reset/set
     TA0CCR2 = 17;                        // CCR2 PWM duty cycle
     TA0CCTL3 = OUTMOD_7;                // CCR3 reset/set
-    TA0CCR3 = 17;                        // CCR3 PWM duty cycle
+    TA0CCR3 = 22;                        // CCR3 PWM duty cycle
     TA0CTL = TASSEL_2 + TACLR + MC_1;   // SMCLK, clear TAR, Up Mode
 
  /////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ int main(void) {
 
 
     P6SEL = 0x03;                             // Enable A/D channel inputs
-    ADC12CTL0 = ADC12SHT0_4 + ADC12MSC + ADC12ON; //Sample time is 64 clocks, rising edge trigger, turn on ADC
+    ADC12CTL0 = ADC12SHT0_11 + ADC12MSC + ADC12ON; //Sample time is 64 clocks, rising edge trigger, turn on ADC
     ADC12CTL1 = ADC12SHP + ADC12SHS_3 + ADC12SSEL_3 + ADC12CONSEQ_1;    // Use sampling timer, Timer B CCR1 as trigger, SMCLK, sequence
     ADC12MCTL0 = ADC12INCH_0;                 // ref+=AVcc, channel = A0
     ADC12MCTL1 = ADC12INCH_1 + ADC12EOS;      // ref+=AVcc, channel = A1, end of sequence
@@ -77,10 +77,10 @@ int main(void) {
     P4SEL = BIT4+BIT5;                        // P3.4,5 = USCI_A0 TXD/RXD
 
     UCA1CTL1 |= UCSWRST;                      // **Put state machine in reset**
-    UCA1CTL1 |= UCSSEL_1;                     // CLK = ACLK
-    UCA1BR0 = 0x03;                           // 32kHz/9600=3.41 (see User's Guide)
+    UCA1CTL1 |= UCSSEL_2;                     // CLK = ACLK
+    UCA1BR0 = 0x05;                           // 32kHz/9600=3.41 (see User's Guide)
     UCA1BR1 = 0x00;                           //
-    UCA1MCTL = UCBRS_3+UCBRF_0;               // Modulation UCBRSx=3, UCBRFx=0
+    UCA1MCTL = UCBRS_0+UCBRF_7 + UCOS16;               // Modulation UCBRSx=3, UCBRFx=0
     UCA1CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
     //UCA1IE |= UCRXIE;                         // Enable USCI_A0 RX interrupt
 
@@ -92,21 +92,27 @@ int main(void) {
     while(1) {
 
 		if(send) {
+			while (!(UCA1IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
+			UCA1TXBUF = 0xFF;
+			while (!(UCA1IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
+			UCA1TXBUF = 0xFF;
 			int i;
 			for (i = 0; i < 8; i++)
 			{
 				if (i%2)
 				{
 					skinv2[i] = (0x00FF & skin[i/2]);
-					//bonev2[i] = (0x00FF & bone[i/2]);
+					bonev2[i] = (0x00FF & bone[i/2]);
 				}
 				else
 				{
 					skinv2[i] = ((skin[i/2] >> 8) & 0x00FF);
-					//bonev2[i] = ((bone[i/2] >> 8) & 0x00FF);
+					bonev2[i] = ((bone[i/2] >> 8) & 0x00FF);
 				}
 				while (!(UCA1IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
 					UCA1TXBUF = skinv2[i];
+				while (!(UCA1IFG&UCTXIFG));             // USCI_A0 TX buffer ready?
+					UCA1TXBUF = bonev2[i];
 			}
 			send = 0;
 		}
